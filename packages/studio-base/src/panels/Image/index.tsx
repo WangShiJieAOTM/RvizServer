@@ -11,6 +11,11 @@ import { filterMap } from "@foxglove/den/collection";
 import { useCrash } from "@foxglove/hooks";
 import { PanelExtensionContext } from "@foxglove/studio";
 import { CaptureErrorBoundary } from "@foxglove/studio-base/components/CaptureErrorBoundary";
+import {
+  ForwardAnalyticsContextProvider,
+  ForwardedAnalytics,
+  useForwardAnalytics,
+} from "@foxglove/studio-base/components/ForwardAnalyticsContextProvider";
 import { useMessagePipelineGetter } from "@foxglove/studio-base/components/MessagePipeline";
 import Panel from "@foxglove/studio-base/components/Panel";
 import PanelContext from "@foxglove/studio-base/components/PanelContext";
@@ -24,11 +29,17 @@ import { SaveConfig } from "@foxglove/studio-base/types/panels";
 import { defaultConfig, ImageView } from "./ImageView";
 import { Config } from "./types";
 
-function initPanel(crash: ReturnType<typeof useCrash>, context: PanelExtensionContext) {
+function initPanel(
+  crash: ReturnType<typeof useCrash>,
+  forwardedAnalytics: ForwardedAnalytics,
+  context: PanelExtensionContext,
+) {
   ReactDOM.render(
     <StrictMode>
       <CaptureErrorBoundary onError={crash}>
-        <ImageView context={context} />
+        <ForwardAnalyticsContextProvider forwardedAnalytics={forwardedAnalytics}>
+          <ImageView context={context} />
+        </ForwardAnalyticsContextProvider>
       </CaptureErrorBoundary>
     </StrictMode>,
     context.panelElement,
@@ -45,7 +56,11 @@ type Props = {
 
 function ImagePanelAdapter(props: Props) {
   const crash = useCrash();
-  const boundInitPanel = useMemo(() => initPanel.bind(undefined, crash), [crash]);
+  const forwardedAnalytics = useForwardAnalytics();
+  const boundInitPanel = useMemo(
+    () => initPanel.bind(undefined, crash, forwardedAnalytics),
+    [crash, forwardedAnalytics],
+  );
 
   const [closedBanner, setClosedBanner] = useState(false);
   const panelContext = useContext(PanelContext);
