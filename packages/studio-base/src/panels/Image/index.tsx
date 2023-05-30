@@ -2,14 +2,23 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-import { StrictMode, useMemo } from "react";
+import { Alert, Link } from "@mui/material";
+import { StrictMode, useContext, useMemo, useState } from "react";
 import ReactDOM from "react-dom";
+import { useLatest } from "react-use";
 
+import { filterMap } from "@foxglove/den/collection";
 import { useCrash } from "@foxglove/hooks";
 import { PanelExtensionContext } from "@foxglove/studio";
 import { CaptureErrorBoundary } from "@foxglove/studio-base/components/CaptureErrorBoundary";
+import { useMessagePipelineGetter } from "@foxglove/studio-base/components/MessagePipeline";
 import Panel from "@foxglove/studio-base/components/Panel";
+import PanelContext from "@foxglove/studio-base/components/PanelContext";
 import { PanelExtensionAdapter } from "@foxglove/studio-base/components/PanelExtensionAdapter";
+import Stack from "@foxglove/studio-base/components/Stack";
+import { CAMERA_CALIBRATION_DATATYPES } from "@foxglove/studio-base/panels/ThreeDeeRender/foxglove";
+import { getTopicMatchPrefix } from "@foxglove/studio-base/panels/ThreeDeeRender/renderables/Images/topicPrefixMatching";
+import { CAMERA_INFO_DATATYPES } from "@foxglove/studio-base/panels/ThreeDeeRender/ros";
 import { SaveConfig } from "@foxglove/studio-base/types/panels";
 
 import { defaultConfig, ImageView } from "./ImageView";
@@ -38,13 +47,74 @@ function ImagePanelAdapter(props: Props) {
   const crash = useCrash();
   const boundInitPanel = useMemo(() => initPanel.bind(undefined, crash), [crash]);
 
+  const [closedBanner, setClosedBanner] = useState(false);
+  const panelContext = useContext(PanelContext);
+  const latestConfig = useLatest(props.config);
+  const getMessagePipelineContext = useMessagePipelineGetter();
+
+  const deprecationBanner = closedBanner ? undefined : (
+    <Alert severity="info" color="warning" onClose={() => setClosedBanner(true)}>
+      The Image (Legacy) panel is now deprecated.{" "}
+      <Link
+        color="inherit"
+        onClick={() => {
+          const { sortedTopics } = getMessagePipelineContext();
+          const prefix = getTopicMatchPrefix(latestConfig.current.cameraTopic);
+          const calibrationSchemas = new Set([
+            ...CAMERA_INFO_DATATYPES,
+            ...CAMERA_CALIBRATION_DATATYPES,
+          ]);
+          const calibrationTopic =
+            prefix == undefined
+              ? undefined
+              : sortedTopics.find(
+                  (topic) =>
+                    topic.schemaName != undefined &&
+                    calibrationSchemas.has(topic.schemaName) &&
+                    topic.name.startsWith(prefix),
+                )?.name;
+
+          panelContext?.replacePanel("Image", {
+            imageMode: {
+              imageTopic: latestConfig.current.cameraTopic,
+              calibrationTopic,
+              synchronize: latestConfig.current.synchronize,
+              rotation: latestConfig.current.rotation,
+              flipHorizontal: latestConfig.current.flipHorizontal,
+              flipVertical: latestConfig.current.flipVertical,
+              annotations: filterMap(latestConfig.current.enabledMarkerTopics, (topicName) => {
+                const topic = sortedTopics.find((t) => t.name === topicName);
+                if (topic?.schemaName != undefined) {
+                  return {
+                    topic: topicName,
+                    schemaName: topic.schemaName,
+                    settings: { visible: true },
+                  };
+                }
+                return undefined;
+              }),
+            },
+          });
+          setClosedBanner(true);
+        }}
+      >
+        Upgrade to the new Image panel
+      </Link>
+      .
+    </Alert>
+  );
+
   return (
-    <PanelExtensionAdapter
-      config={props.config}
-      saveConfig={props.saveConfig}
-      initPanel={boundInitPanel}
-      highestSupportedConfigVersion={1}
-    />
+    <Stack fullHeight>
+      <PanelExtensionAdapter
+        config={props.config}
+        saveConfig={props.saveConfig}
+        initPanel={boundInitPanel}
+        highestSupportedConfigVersion={1}
+      >
+        {deprecationBanner}
+      </PanelExtensionAdapter>
+    </Stack>
   );
 }
 
