@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { ImageAnnotations, PointsAnnotationType } from "@foxglove/schemas";
 import { MessageEvent } from "@foxglove/studio";
 import { ImageModeConfig } from "@foxglove/studio-base/panels/ThreeDeeRender/IRenderer";
+import { namespaceTopic } from "@foxglove/studio-base/panels/ThreeDeeRender/namespaceTopic";
 import { makeRawImageAndCalibration } from "@foxglove/studio-base/panels/ThreeDeeRender/stories/ImageMode/imageCommon";
 import PanelSetup, { Fixture } from "@foxglove/studio-base/stories/PanelSetup";
 import { useReadySignal } from "@foxglove/studio-base/stories/ReadySignalContext";
@@ -251,13 +252,9 @@ const AnnotationsStory = (imageModeConfigOverride: Partial<ImageModeConfig> = {}
           imageMode: {
             calibrationTopic: "calibration",
             imageTopic: "camera",
-            annotations: [
-              {
-                topic: "annotations",
-                schemaName: "foxglove.ImageAnnotations",
-                settings: { visible: true },
-              },
-            ],
+            annotations: {
+              [namespaceTopic("annotations", "foxglove.ImageAnnotations")]: { visible: true },
+            },
             ...imageModeConfigOverride,
           },
         }}
@@ -437,28 +434,18 @@ export const MessageConverterSupport: StoryObj = {
             imageMode: {
               calibrationTopic: "calibration",
               imageTopic: "camera",
-              annotations: [
-                {
-                  topic: "annotations",
-                  schemaName: "foxglove.ImageAnnotations",
-                  settings: { visible: true },
+              annotations: {
+                [namespaceTopic("annotations", "foxglove.ImageAnnotations")]: { visible: true },
+                [namespaceTopic("annotations", "foxglove_msgs/ImageAnnotations")]: {
+                  visible: true,
                 },
-                {
-                  topic: "annotations",
-                  schemaName: "foxglove_msgs/ImageAnnotations",
-                  settings: { visible: true },
+                [namespaceTopic("custom_annotations", "foxglove_msgs/ImageAnnotations")]: {
+                  visible: true,
                 },
-                {
-                  topic: "custom_annotations",
-                  schemaName: "foxglove_msgs/ImageAnnotations",
-                  settings: { visible: true },
+                [namespaceTopic("custom_annotations", "foxglove_msgs/msg/ImageAnnotations")]: {
+                  visible: true,
                 },
-                {
-                  topic: "custom_annotations",
-                  schemaName: "foxglove_msgs/msg/ImageAnnotations",
-                  settings: { visible: true },
-                },
-              ],
+              },
             },
           }}
         />
@@ -770,18 +757,12 @@ const AnnotationsUpdateStory = (
           imageMode: {
             calibrationTopic: "calibration",
             imageTopic: "camera",
-            annotations: [
-              {
-                topic: "annotations",
-                schemaName: "foxglove.ImageAnnotations",
-                settings: { visible: true },
+            annotations: {
+              [namespaceTopic("annotations", "foxglove.ImageAnnotations")]: { visible: true },
+              [namespaceTopic("annotationsToClear", "foxglove.ImageAnnotations")]: {
+                visible: true,
               },
-              {
-                topic: "annotationsToClear",
-                schemaName: "foxglove.ImageAnnotations",
-                settings: { visible: true },
-              },
-            ],
+            },
             ...imageModeConfigOverride,
           },
         }}

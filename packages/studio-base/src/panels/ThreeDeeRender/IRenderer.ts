@@ -13,6 +13,7 @@ import {
   Topic,
   VariableValue,
 } from "@foxglove/studio";
+import { NamespacedTopic } from "@foxglove/studio-base/panels/ThreeDeeRender/namespaceTopic";
 import { ICameraHandler } from "@foxglove/studio-base/panels/ThreeDeeRender/renderables/ICameraHandler";
 import { LabelPool } from "@foxglove/three-text";
 
@@ -64,11 +65,6 @@ export type FollowMode = "follow-pose" | "follow-position" | "follow-none";
 export type ImageAnnotationSettings = {
   visible: boolean;
 };
-export type ImageAnnotationSubscription = {
-  topic: string;
-  schemaName: string;
-  settings: ImageAnnotationSettings;
-};
 
 /** Settings pertaining to Image mode */
 export type ImageModeConfig = {
@@ -76,8 +72,8 @@ export type ImageModeConfig = {
   imageTopic?: string;
   /** Topic containing CameraCalibration or CameraInfo */
   calibrationTopic?: string;
-  /** Annotation topic settings, analogous to {@link RendererConfig.topics} */
-  annotations?: ImageAnnotationSubscription[];
+  /** Annotation topic settings, analogous to {@link RendererConfig.namespacedTopics} */
+  annotations?: Record<NamespacedTopic, ImageAnnotationSettings>;
   synchronize?: boolean;
   /** Rotation */
   rotation?: 0 | 90 | 180 | 270;

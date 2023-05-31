@@ -285,11 +285,11 @@ export class Images extends SceneExtension<ImageRenderable> {
   };
 
   #handleImage = (messageEvent: PartialMessageEvent<AnyImage>, image: AnyImage): void => {
-    const imageTopic = namespaceTopic(messageEvent.topic, messageEvent.schemaName);
+    const namespacedTopic = namespaceTopic(messageEvent.topic, messageEvent.schemaName);
     const receiveTime = toNanoSec(messageEvent.receiveTime);
     const frameId = "header" in image ? image.header.frame_id : image.frame_id;
 
-    const renderable = this.#getImageRenderable(imageTopic, receiveTime, image, frameId);
+    const renderable = this.#getImageRenderable(namespacedTopic, receiveTime, image, frameId);
     renderable.setImage(image);
 
     const isCompressedImage = "format" in image;
@@ -301,23 +301,23 @@ export class Images extends SceneExtension<ImageRenderable> {
         DEFAULT_BITMAP_WIDTH,
         (bitmap) => {
           const prevRenderable = renderable;
-          const currentRenderable = this.renderables.get(imageTopic);
+          const currentRenderable = this.renderables.get(namespacedTopic);
           if (currentRenderable !== prevRenderable) {
             return;
           }
-          this.renderer.settings.errors.removeFromTopic(imageTopic, CREATE_BITMAP_ERR_KEY);
+          this.renderer.settings.errors.removeFromTopic(namespacedTopic, CREATE_BITMAP_ERR_KEY);
           renderable.setBitmap(bitmap);
           renderable.update();
           this.renderer.queueAnimationFrame();
         },
         (err) => {
           const prevRenderable = renderable;
-          const currentRenderable = this.renderables.get(imageTopic);
+          const currentRenderable = this.renderables.get(namespacedTopic);
           if (currentRenderable !== prevRenderable) {
             return;
           }
           this.renderer.settings.errors.addToTopic(
-            imageTopic,
+            namespacedTopic,
             CREATE_BITMAP_ERR_KEY,
             `Error creating bitmap: ${err.message}`,
           );
@@ -329,7 +329,7 @@ export class Images extends SceneExtension<ImageRenderable> {
     // Auto-select settings.cameraInfoTopic if it's not already set
     const settings = renderable.userData.settings;
     if (settings.cameraInfoTopic == undefined) {
-      const prefix = getTopicMatchPrefix(imageTopic);
+      const prefix = getTopicMatchPrefix(messageEvent.topic);
       const newCameraInfoTopic =
         prefix != undefined
           ? filterMap(this.#cameraInfoTopics, (topic) =>
@@ -343,7 +343,7 @@ export class Images extends SceneExtension<ImageRenderable> {
       // There's no way to render without camera info
       if (newCameraInfoTopic == undefined) {
         this.renderer.settings.errors.addToTopic(
-          imageTopic,
+          namespacedTopic,
           NO_CAMERA_INFO_ERR,
           "No CameraInfo topic found",
         );
@@ -358,19 +358,19 @@ export class Images extends SceneExtension<ImageRenderable> {
       this.renderer.updateConfig((draft) => {
         const updatedUserSettings = { ...settings };
         updatedUserSettings.cameraInfoTopic = newCameraInfoTopic;
-        draft.namespacedTopics[imageTopic] = updatedUserSettings;
+        draft.namespacedTopics[namespacedTopic] = updatedUserSettings;
       });
       this.updateSettingsTree();
     }
 
     assert(settings.cameraInfoTopic != undefined);
-    this.#cameraInfoToImageTopics.set(settings.cameraInfoTopic, imageTopic);
+    this.#cameraInfoToImageTopics.set(settings.cameraInfoTopic, namespacedTopic);
 
     // Look up the camera info for our renderable
     const cameraInfo = this.#cameraInfoByTopic.get(settings.cameraInfoTopic);
     if (!cameraInfo) {
       this.renderer.settings.errors.addToTopic(
-        imageTopic,
+        namespacedTopic,
         NO_CAMERA_INFO_ERR,
         `No CameraInfo received on ${settings.cameraInfoTopic}`,
       );

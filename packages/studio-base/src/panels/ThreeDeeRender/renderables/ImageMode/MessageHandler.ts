@@ -5,23 +5,26 @@
 import { Immutable } from "immer";
 
 import { AVLTree } from "@foxglove/avl";
-import { TwoKeyMap } from "@foxglove/den/collection";
 import {
   Time,
-  fromNanoSec,
-  toNanoSec,
   compare as compareTime,
+  fromNanoSec,
   isLessThan,
+  toNanoSec,
 } from "@foxglove/rostime";
 import {
   CompressedImage,
-  RawImage,
   ImageAnnotations as FoxgloveImageAnnotations,
+  RawImage,
 } from "@foxglove/schemas";
 import { MessageEvent } from "@foxglove/studio";
 import { normalizeAnnotations } from "@foxglove/studio-base/panels/Image/lib/normalizeAnnotations";
 import { Annotation } from "@foxglove/studio-base/panels/Image/types";
 import { ImageModeConfig } from "@foxglove/studio-base/panels/ThreeDeeRender/IRenderer";
+import {
+  NamespacedTopic,
+  namespaceTopic,
+} from "@foxglove/studio-base/panels/ThreeDeeRender/namespaceTopic";
 import {
   AnyImage,
   getTimestampFromImage,
@@ -37,9 +40,10 @@ import {
   ImageMarker as RosImageMarker,
   ImageMarkerArray as RosImageMarkerArray,
 } from "@foxglove/studio-base/types/Messages";
+import { recordEntries } from "@foxglove/studio-base/util/recordEntries";
 
 import { PartialMessageEvent } from "../../SceneExtension";
-import { CompressedImage as RosCompressedImage, Image as RosImage, CameraInfo } from "../../ros";
+import { CameraInfo, CompressedImage as RosCompressedImage, Image as RosImage } from "../../ros";
 
 type NormalizedAnnotations = {
   // required for setting the original message on the renderable
@@ -49,10 +53,10 @@ type NormalizedAnnotations = {
 
 type SynchronizationItem = {
   image?: Readonly<MessageEvent<AnyImage>>;
-  annotationsByTopicSchema: TwoKeyMap<string, string, NormalizedAnnotations>;
+  annotationsByTopicSchema: Map<NamespacedTopic, NormalizedAnnotations>;
 };
 
-type Config = Pick<
+export type MessageHandlerConfig = Pick<
   ImageModeConfig,
   "synchronize" | "annotations" | "calibrationTopic" | "imageTopic"
 >;
@@ -60,7 +64,7 @@ type Config = Pick<
 type MessageHandlerState = {
   image?: MessageEvent<AnyImage>;
   cameraInfo?: CameraInfo;
-  annotationsByTopicSchema: TwoKeyMap<string, string, NormalizedAnnotations>;
+  annotationsByTopicSchema: Map<NamespacedTopic, NormalizedAnnotations>;
 };
 
 export type MessageRenderState = Readonly<Partial<MessageHandlerState>>;
@@ -78,7 +82,7 @@ type RenderStateListener = (
  */
 export class MessageHandler {
   /** settings that should reflect image mode config */
-  #config: Immutable<Config>;
+  #config: Immutable<MessageHandlerConfig>;
 
   /** last state passed to listeners */
   #oldRenderState: MessageRenderState | undefined;
@@ -96,10 +100,10 @@ export class MessageHandler {
    *
    * @param config - subset of ImageMode settings required for message handling
    */
-  public constructor(config: Immutable<Config>) {
+  public constructor(config: Immutable<MessageHandlerConfig>) {
     this.#config = config;
     this.#lastReceivedMessages = {
-      annotationsByTopicSchema: new TwoKeyMap(),
+      annotationsByTopicSchema: new Map(),
     };
     this.#tree = new AVLTree<Time, SynchronizationItem>(compareTime);
   }
@@ -152,7 +156,7 @@ export class MessageHandler {
     } else {
       this.#tree.set(getTimestampFromImage(image), {
         image: normalizedImageMessage,
-        annotationsByTopicSchema: new TwoKeyMap(),
+        annotationsByTopicSchema: new Map(),
       });
     }
     this.#emitState();
@@ -168,10 +172,13 @@ export class MessageHandler {
     messageEvent: MessageEvent<FoxgloveImageAnnotations | RosImageMarker | RosImageMarkerArray>,
   ): void => {
     const annotations = normalizeAnnotations(messageEvent.message, messageEvent.schemaName);
+    if (!annotations) {
+      return;
+    }
 
-    const { topic, schemaName } = messageEvent;
+    const topic = namespaceTopic(messageEvent.topic, messageEvent.schemaName);
     if (this.#config.synchronize !== true) {
-      this.#lastReceivedMessages.annotationsByTopicSchema.set(topic, schemaName, {
+      this.#lastReceivedMessages.annotationsByTopicSchema.set(topic, {
         originalMessage: messageEvent,
         annotations,
       });
@@ -196,11 +203,11 @@ export class MessageHandler {
       if (!item) {
         item = {
           image: undefined,
-          annotationsByTopicSchema: new TwoKeyMap(),
+          annotationsByTopicSchema: new Map(),
         };
         this.#tree.set(stamp, item);
       }
-      item.annotationsByTopicSchema.set(topic, schemaName, {
+      item.annotationsByTopicSchema.set(topic, {
         originalMessage: messageEvent,
         annotations: group,
       });
@@ -238,26 +245,24 @@ export class MessageHandler {
       this.#config.annotations &&
       this.#config.annotations !== newConfig.annotations
     ) {
-      const newVisibleAnnotationsMap = new TwoKeyMap<string, string, boolean>();
+      const newVisibleAnnotationsMap = new Map<NamespacedTopic, boolean>();
 
-      newConfig.annotations.forEach(
-        ({ topic, schemaName, settings }) =>
-          settings.visible && newVisibleAnnotationsMap.set(topic, schemaName, settings.visible),
-      );
+      for (const [topic, settings] of recordEntries(newConfig.annotations)) {
+        if (settings.visible) {
+          newVisibleAnnotationsMap.set(topic, settings.visible);
+        }
+      }
 
-      for (const [
-        topic,
-        schemaName,
-      ] of this.#lastReceivedMessages.annotationsByTopicSchema.keys()) {
-        if (newVisibleAnnotationsMap.get(topic, schemaName) == undefined) {
-          this.#lastReceivedMessages.annotationsByTopicSchema.delete(topic, schemaName);
+      for (const topic of this.#lastReceivedMessages.annotationsByTopicSchema.keys()) {
+        if (newVisibleAnnotationsMap.get(topic) == undefined) {
+          this.#lastReceivedMessages.annotationsByTopicSchema.delete(topic);
           changed = true;
         }
       }
       for (const syncEntry of this.#tree.values()) {
-        for (const [topic, schemaName] of syncEntry.annotationsByTopicSchema.keys()) {
-          if (newVisibleAnnotationsMap.get(topic, schemaName) == undefined) {
-            syncEntry.annotationsByTopicSchema.delete(topic, schemaName);
+        for (const topic of syncEntry.annotationsByTopicSchema.keys()) {
+          if (newVisibleAnnotationsMap.get(topic) == undefined) {
+            syncEntry.annotationsByTopicSchema.delete(topic);
             changed = true;
           }
         }
@@ -276,7 +281,7 @@ export class MessageHandler {
 
   public clear(): void {
     this.#lastReceivedMessages = {
-      annotationsByTopicSchema: new TwoKeyMap(),
+      annotationsByTopicSchema: new Map(),
     };
     this.#tree.clear();
     this.#oldRenderState = undefined;
@@ -311,13 +316,14 @@ export class MessageHandler {
     return { ...this.#lastReceivedMessages };
   }
 
-  #visibleAnnotationsMap(): TwoKeyMap<string, string, boolean> {
-    const map = new TwoKeyMap<string, string, true>();
+  #visibleAnnotationsMap(): Map<NamespacedTopic, boolean> {
+    const map = new Map<NamespacedTopic, true>();
 
-    this.#config.annotations?.forEach(
-      ({ topic, schemaName, settings }) =>
-        settings.visible && map.set(topic, schemaName, settings.visible),
-    );
+    for (const [topic, settings] of recordEntries(this.#config.annotations ?? {})) {
+      if (settings.visible) {
+        map.set(topic, settings.visible);
+      }
+    }
     return map;
   }
 }
@@ -330,7 +336,7 @@ export class MessageHandler {
  */
 export function findSynchronizedSetAndRemoveOlderItems(
   tree: AVLTree<Time, SynchronizationItem>,
-  visibleAnnotationsMap: TwoKeyMap<string, string, boolean>,
+  visibleAnnotationsMap: Map<NamespacedTopic, boolean>,
 ): [Time, SynchronizationItem] | undefined {
   let validEntry: [Time, SynchronizationItem] | undefined = undefined;
   for (const entry of tree.entries()) {
@@ -338,8 +344,7 @@ export function findSynchronizedSetAndRemoveOlderItems(
     const hasOnlyVisibleAnnotations =
       visibleAnnotationsMap.size === messageState.annotationsByTopicSchema.size &&
       Array.from(visibleAnnotationsMap.keys()).every(
-        ([topic, schemaName]) =>
-          messageState.annotationsByTopicSchema.get(topic, schemaName) != undefined,
+        (topic) => messageState.annotationsByTopicSchema.get(topic) != undefined,
       );
     // If we have an image and all the messages for annotation topics then we have a synchronized set.
     if (messageState.image && hasOnlyVisibleAnnotations) {

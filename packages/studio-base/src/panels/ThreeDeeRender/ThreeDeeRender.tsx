@@ -353,23 +353,11 @@ export function ThreeDeeRender(props: {
       convertTo?: string,
     ) => {
       const namespacedTopic = namespaceTopic(topic.name, convertTo ?? topic.schemaName);
-      let shouldSubscribe = rendererSubscription.shouldSubscribe?.(topic.name);
-      if (shouldSubscribe == undefined) {
-        if (config.namespacedTopics[namespacedTopic]?.visible === true) {
-          shouldSubscribe = true;
-        } else if (
-          config.imageMode.annotations?.some(
-            (sub) =>
-              sub.topic === topic.name &&
-              sub.schemaName === (convertTo ?? topic.schemaName) &&
-              sub.settings.visible,
-          ) === true
-        ) {
-          shouldSubscribe = true;
-        } else {
-          shouldSubscribe = false;
-        }
-      }
+      const imageAnnotations = config.imageMode.annotations ?? {};
+      const shouldSubscribe =
+        rendererSubscription.shouldSubscribe?.(topic.name) === true ||
+        config.namespacedTopics[namespacedTopic]?.visible === true ||
+        imageAnnotations[namespacedTopic]?.visible === true;
       if (shouldSubscribe) {
         newSubscriptions.push({
           topic: topic.name,

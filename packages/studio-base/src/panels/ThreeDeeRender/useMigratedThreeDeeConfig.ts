@@ -2,19 +2,14 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-import { merge } from "hammerjs";
 import { Immutable as Im } from "immer";
-import { cloneDeep } from "lodash";
+import { cloneDeep, merge } from "lodash";
 import { Dispatch, SetStateAction, useEffect, useState } from "react";
 import { DeepPartial } from "ts-essentials";
 
 import { Topic } from "@foxglove/studio";
 import { ImageModeConfig } from "@foxglove/studio-base/panels/ThreeDeeRender/IRenderer";
-import { LegacyImageConfig } from "@foxglove/studio-base/panels/ThreeDeeRender/Renderer";
-import {
-  CameraState,
-  DEFAULT_CAMERA_STATE,
-} from "@foxglove/studio-base/panels/ThreeDeeRender/camera";
+import { DEFAULT_CAMERA_STATE } from "@foxglove/studio-base/panels/ThreeDeeRender/camera";
 import { LayerSettingsTransform } from "@foxglove/studio-base/panels/ThreeDeeRender/renderables/FrameAxes";
 import { DEFAULT_PUBLISH_SETTINGS } from "@foxglove/studio-base/panels/ThreeDeeRender/renderables/PublishSettings";
 
@@ -30,10 +25,7 @@ export function useMigratedThreeDeeConfig(
     const partialConfig: DeepPartial<RendererConfig> = initialState ?? {};
 
     // Initialize the camera from default settings overlaid with persisted settings
-    const cameraState: CameraState = merge(
-      cloneDeep(DEFAULT_CAMERA_STATE),
-      partialConfig.cameraState ?? {},
-    );
+    const cameraState = merge(cloneDeep(DEFAULT_CAMERA_STATE), partialConfig.cameraState ?? {});
     const publish = merge(cloneDeep(DEFAULT_PUBLISH_SETTINGS), partialConfig.publish ?? {});
 
     const transforms = (partialConfig.transforms ?? {}) as Record<
@@ -41,22 +33,17 @@ export function useMigratedThreeDeeConfig(
       Partial<LayerSettingsTransform>
     >;
 
-    // Merge in config from the legacy Image panel
-    const legacyImageConfig = partialConfig as DeepPartial<LegacyImageConfig> | undefined;
-    const imageMode: ImageModeConfig = {
-      imageTopic: legacyImageConfig?.cameraTopic,
-      ...partialConfig.imageMode,
-      annotations: partialConfig.imageMode?.annotations as
-        | ImageModeConfig["annotations"]
-        | undefined,
-    };
-
     const completeConfig: RendererConfig = {
       version: "2",
       cameraState,
       followMode: partialConfig.followMode ?? "follow-pose",
       followTf: partialConfig.followTf,
-      imageMode,
+      imageMode: {
+        ...partialConfig.imageMode,
+        annotations: partialConfig.imageMode?.annotations as
+          | ImageModeConfig["annotations"]
+          | undefined,
+      },
       layers: partialConfig.layers ?? {},
       publish,
       scene: partialConfig.scene ?? {},
