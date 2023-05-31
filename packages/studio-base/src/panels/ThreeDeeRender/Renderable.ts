@@ -7,6 +7,7 @@ import * as THREE from "three";
 import type { RosValue } from "@foxglove/studio-base/players/types";
 
 import type { IRenderer } from "./IRenderer";
+import { NamespacedTopic } from "./namespaceTopic";
 import type { BaseSettings } from "./settings";
 import type { Pose } from "./transforms";
 
@@ -26,7 +27,7 @@ export type BaseUserData = {
   /** User-customizable settings for this Renderable */
   settings: BaseSettings;
   /** Topic that the Renderable belongs to, if applicable*/
-  topic?: string;
+  topic?: NamespacedTopic;
 };
 
 /**

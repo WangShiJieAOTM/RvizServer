@@ -10,6 +10,10 @@ import { PinholeCameraModel } from "@foxglove/den/image";
 import { toNanoSec } from "@foxglove/rostime";
 import { SettingsTreeAction, SettingsTreeFields, Topic } from "@foxglove/studio";
 import {
+  NamespacedTopic,
+  namespaceTopic,
+} from "@foxglove/studio-base/panels/ThreeDeeRender/namespaceTopic";
+import {
   CREATE_BITMAP_ERR_KEY,
   IMAGE_RENDERABLE_DEFAULT_SETTINGS,
   ImageRenderable,
@@ -569,7 +573,7 @@ export class ImageMode
   };
 
   #handleImageChange = (messageEvent: PartialMessageEvent<AnyImage>, image: AnyImage): void => {
-    const topic = messageEvent.topic;
+    const topic = namespaceTopic(messageEvent.topic, messageEvent.schemaName);
     const receiveTime = toNanoSec(messageEvent.receiveTime);
     const frameId = "header" in image ? image.header.frame_id : image.frame_id;
 
@@ -655,7 +659,7 @@ export class ImageMode
   };
 
   #getImageRenderable(
-    topicName: string,
+    topicName: NamespacedTopic,
     receiveTime: bigint,
     image: AnyImage | undefined,
     frameId: string,

@@ -11,6 +11,7 @@ import { UrdfGeometryMesh, UrdfRobot, UrdfVisual, parseRobot, UrdfJoint } from "
 import Logger from "@foxglove/log";
 import { toNanoSec } from "@foxglove/rostime";
 import { SettingsTreeAction, SettingsTreeChildren, SettingsTreeFields } from "@foxglove/studio";
+import { NamespacedTopic } from "@foxglove/studio-base/panels/ThreeDeeRender/namespaceTopic";
 import { eulerToQuaternion } from "@foxglove/studio-base/util/geometry";
 import isDesktopApp from "@foxglove/studio-base/util/isDesktopApp";
 
@@ -46,6 +47,7 @@ const log = Logger.getLogger(__filename);
 
 const LAYER_ID = "foxglove.Urdf";
 const TOPIC_NAME = "/robot_description";
+export const URDF_TOPIC_NAME = TOPIC_NAME;
 
 /** ID of fake "topic" used to represent the /robot_description parameter */
 const PARAM_KEY = "param:/robot_description";
@@ -193,11 +195,13 @@ export class Urdfs extends SceneExtension<UrdfRenderable> {
     const entries: SettingsTreeEntry[] = [];
 
     // /robot_description topic entry
+    const namespacedTopic = TOPIC_NAME as NamespacedTopic;
     const topic = this.renderer.topicsByName?.get(TOPIC_NAME);
     if (topic != undefined) {
-      const config = (this.renderer.config.topics[TOPIC_NAME] ?? {}) as Partial<LayerSettingsUrdf>;
+      const config = (this.renderer.config.namespacedTopics[namespacedTopic] ??
+        {}) as Partial<LayerSettingsUrdf>;
       entries.push({
-        path: ["topics", TOPIC_NAME],
+        path: ["namespacedTopics", namespacedTopic],
         node: {
           label: TOPIC_NAME,
           icon: "PrecisionManufacturing",
@@ -213,14 +217,16 @@ export class Urdfs extends SceneExtension<UrdfRenderable> {
     }
 
     // /robot_description parameter entry
+    const namespacedParamKey = PARAM_KEY as NamespacedTopic;
     const parameter = this.renderer.parameters?.get(PARAM_NAME);
     if (parameter != undefined) {
-      const config = (this.renderer.config.topics[PARAM_KEY] ?? {}) as Partial<LayerSettingsUrdf>;
+      const config = (this.renderer.config.namespacedTopics[namespacedParamKey] ??
+        {}) as Partial<LayerSettingsUrdf>;
 
       const fields: SettingsTreeFields = {};
 
       entries.push({
-        path: ["topics", PARAM_KEY],
+        path: ["namespacedTopics", namespacedParamKey],
         node: {
           label: PARAM_DISPLAY_NAME,
           icon: "PrecisionManufacturing",
@@ -532,7 +538,7 @@ export class Urdfs extends SceneExtension<UrdfRenderable> {
     const isTopicOrParam = instanceId === TOPIC_NAME || instanceId === PARAM_KEY;
     const baseSettings = isTopicOrParam ? DEFAULT_SETTINGS : DEFAULT_CUSTOM_SETTINGS;
     const userSettings = isTopicOrParam
-      ? this.renderer.config.topics[instanceId]
+      ? this.renderer.config.namespacedTopics[instanceId as NamespacedTopic]
       : this.renderer.config.layers[instanceId];
     const settings = { ...baseSettings, ...userSettings, instanceId };
     return settings;
@@ -715,7 +721,7 @@ function createRenderable(
   renderer: IRenderer,
   baseUrl: string | undefined,
 ): Renderable {
-  const name = `${frameId}-${id}-${visual.geometry.geometryType}`;
+  const name = `${frameId}-${id}-${visual.geometry.geometryType}` as NamespacedTopic;
   const orientation = eulerToQuaternion(visual.origin.rpy);
   const pose = { position: visual.origin.xyz, orientation };
   const color = getColor(visual, robot);

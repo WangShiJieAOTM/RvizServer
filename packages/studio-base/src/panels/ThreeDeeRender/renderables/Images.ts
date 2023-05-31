@@ -10,6 +10,10 @@ import Logger from "@foxglove/log";
 import { toNanoSec } from "@foxglove/rostime";
 import { CameraCalibration, CompressedImage, RawImage } from "@foxglove/schemas";
 import { SettingsTreeAction, SettingsTreeFields } from "@foxglove/studio";
+import {
+  NamespacedTopic,
+  namespaceTopic,
+} from "@foxglove/studio-base/panels/ThreeDeeRender/namespaceTopic";
 
 import { BitmapCache } from "./Images/BitmapCache";
 import {
@@ -43,7 +47,10 @@ import {
   CAMERA_INFO_DATATYPES,
 } from "../ros";
 import { BaseSettings, PRECISION_DISTANCE } from "../settings";
-import { topicIsConvertibleToSchema } from "../topicIsConvertibleToSchema";
+import {
+  convertibleSchemaForTopic,
+  topicIsConvertibleToSchema,
+} from "../topicIsConvertibleToSchema";
 import { makePose } from "../transforms";
 
 const log = Logger.getLogger(__filename);
@@ -141,21 +148,20 @@ export class Images extends SceneExtension<ImageRenderable> {
   };
 
   public override settingsNodes(): SettingsTreeEntry[] {
-    const configTopics = this.renderer.config.topics;
+    const configTopics = this.renderer.config.namespacedTopics;
     const handler = this.handleSettingsAction;
     const entries: SettingsTreeEntry[] = [];
     for (const topic of this.renderer.topics ?? []) {
-      if (
-        !(
-          topicIsConvertibleToSchema(topic, ROS_IMAGE_DATATYPES) ||
-          topicIsConvertibleToSchema(topic, ROS_COMPRESSED_IMAGE_DATATYPES) ||
-          topicIsConvertibleToSchema(topic, RAW_IMAGE_DATATYPES) ||
-          topicIsConvertibleToSchema(topic, COMPRESSED_IMAGE_DATATYPES)
-        )
-      ) {
+      const schema =
+        convertibleSchemaForTopic(topic, ROS_IMAGE_DATATYPES) ??
+        convertibleSchemaForTopic(topic, ROS_COMPRESSED_IMAGE_DATATYPES) ??
+        convertibleSchemaForTopic(topic, RAW_IMAGE_DATATYPES) ??
+        convertibleSchemaForTopic(topic, COMPRESSED_IMAGE_DATATYPES);
+      if (!schema) {
         continue;
       }
-      const imageTopic = topic.name;
+
+      const imageTopic = namespaceTopic(topic.name, schema);
       const config = (configTopics[imageTopic] ?? {}) as Partial<LayerSettingsImage>;
 
       // Build a list of all matching CameraInfo topics
@@ -175,9 +181,10 @@ export class Images extends SceneExtension<ImageRenderable> {
       };
 
       entries.push({
-        path: ["topics", imageTopic],
+        path: ["namespacedTopics", imageTopic],
         node: {
           icon: "ImageProjection",
+          label: topic.name,
           fields,
           visible: config.visible ?? IMAGE_RENDERABLE_DEFAULT_SETTINGS.visible,
           order: imageTopic.toLocaleLowerCase(),
@@ -194,15 +201,15 @@ export class Images extends SceneExtension<ImageRenderable> {
       return;
     }
 
-    const imageTopic = path[1]!;
-    const prevSettings = this.renderer.config.topics[imageTopic] as
+    const imageTopic = path[1]! as NamespacedTopic;
+    const prevSettings = this.renderer.config.namespacedTopics[imageTopic] as
       | Partial<LayerSettingsImage>
       | undefined;
     const prevCameraInfoTopic = prevSettings?.cameraInfoTopic;
 
     this.saveSetting(path, action.payload.value);
 
-    const settings = this.renderer.config.topics[imageTopic] as
+    const settings = this.renderer.config.namespacedTopics[imageTopic] as
       | Partial<LayerSettingsImage>
       | undefined;
     const cameraInfoTopic = settings?.cameraInfoTopic;
@@ -248,7 +255,7 @@ export class Images extends SceneExtension<ImageRenderable> {
     // Iterate over each topic config and check if it has a cameraInfoTopic setting that matches
     // the cameraInfoTopic we might want to turn on. If it does and the topic is visible, return
     // true so we know to subscribe.
-    for (const topicConfig of Object.values(this.renderer.config.topics)) {
+    for (const topicConfig of Object.values(this.renderer.config.namespacedTopics)) {
       const maybeImageConfig = topicConfig as Partial<LayerSettingsImage>;
       if (
         maybeImageConfig.cameraInfoTopic === cameraInfoTopic &&
@@ -278,7 +285,7 @@ export class Images extends SceneExtension<ImageRenderable> {
   };
 
   #handleImage = (messageEvent: PartialMessageEvent<AnyImage>, image: AnyImage): void => {
-    const imageTopic = messageEvent.topic;
+    const imageTopic = namespaceTopic(messageEvent.topic, messageEvent.schemaName);
     const receiveTime = toNanoSec(messageEvent.receiveTime);
     const frameId = "header" in image ? image.header.frame_id : image.frame_id;
 
@@ -351,7 +358,7 @@ export class Images extends SceneExtension<ImageRenderable> {
       this.renderer.updateConfig((draft) => {
         const updatedUserSettings = { ...settings };
         updatedUserSettings.cameraInfoTopic = newCameraInfoTopic;
-        draft.topics[imageTopic] = updatedUserSettings;
+        draft.namespacedTopics[imageTopic] = updatedUserSettings;
       });
       this.updateSettingsTree();
     }
@@ -432,7 +439,7 @@ export class Images extends SceneExtension<ImageRenderable> {
 
   // Get or create an image renderable for the imageTopic
   #getImageRenderable(
-    imageTopic: string,
+    imageTopic: NamespacedTopic,
     receiveTime: bigint,
     image: AnyImage | undefined,
     frameId: string,
@@ -443,7 +450,7 @@ export class Images extends SceneExtension<ImageRenderable> {
     }
 
     // Look up any existing settings for the image topic to save as user data with the renderable
-    const userSettings = this.renderer.config.topics[imageTopic] as
+    const userSettings = this.renderer.config.namespacedTopics[imageTopic] as
       | Partial<LayerSettingsImage>
       | undefined;
 
@@ -452,7 +459,7 @@ export class Images extends SceneExtension<ImageRenderable> {
       messageTime: image ? toNanoSec("header" in image ? image.header.stamp : image.timestamp) : 0n,
       frameId: this.renderer.normalizeFrameId(frameId),
       pose: makePose(),
-      settingsPath: ["topics", imageTopic],
+      settingsPath: ["namespacedTopics", imageTopic],
       topic: imageTopic,
       settings: { ...IMAGE_RENDERABLE_DEFAULT_SETTINGS, ...userSettings },
       cameraInfo: undefined,

@@ -17,20 +17,20 @@ import { ICameraHandler } from "@foxglove/studio-base/panels/ThreeDeeRender/rend
 import { LabelPool } from "@foxglove/three-text";
 
 import { Input } from "./Input";
-import { MeshUpAxis, ModelCache } from "./ModelCache";
+import { ModelCache } from "./ModelCache";
 import { PickedRenderable } from "./Picker";
 import { SceneExtension } from "./SceneExtension";
 import { SettingsManager } from "./SettingsManager";
 import { SharedGeometry } from "./SharedGeometry";
 import { CameraState } from "./camera";
+import { RendererConfig } from "./config";
 import { DetailLevel } from "./lod";
-import { LayerSettingsTransform } from "./renderables/FrameAxes";
 import { DownloadImageInfo } from "./renderables/Images/ImageTypes";
 import { MeasurementTool } from "./renderables/MeasurementTool";
-import { PublishClickTool, PublishClickType } from "./renderables/PublishClickTool";
+import { PublishClickTool } from "./renderables/PublishClickTool";
 import { MarkerPool } from "./renderables/markers/MarkerPool";
 import { Quaternion, Vector3 } from "./ros";
-import { BaseSettings, CustomLayerSettings, SelectEntry } from "./settings";
+import { SelectEntry } from "./settings";
 import { TransformTree } from "./transforms";
 import { InterfaceMode } from "./types";
 
@@ -90,70 +90,8 @@ export type ImageModeConfig = {
   foregroundOpacity?: number;
 };
 
-export type RendererConfig = {
-  /** Camera settings for the currently rendering scene */
-  cameraState: CameraState;
-  /** Coordinate frameId of the rendering frame */
-  followTf: string | undefined;
-  /** Camera follow mode */
-  followMode: FollowMode;
-  scene: {
-    /** Show rendering metrics in a DOM overlay */
-    enableStats?: boolean;
-    /** Background color override for the scene, sent to `glClearColor()` */
-    backgroundColor?: string;
-    /* Scale factor to apply to all labels */
-    labelScaleFactor?: number;
-    /** Ignore the <up_axis> tag in COLLADA files (matching rviz behavior) */
-    ignoreColladaUpAxis?: boolean;
-    meshUpAxis?: MeshUpAxis;
-    transforms?: {
-      /** Toggles translation and rotation offset controls for frames */
-      editable?: boolean;
-      /** Toggles visibility of frame axis labels */
-      showLabel?: boolean;
-      /** Size of frame axis labels */
-      labelSize?: number;
-      /** Size of coordinate frame axes */
-      axisScale?: number;
-      /** Width of the connecting line between child and parent frames */
-      lineWidth?: number;
-      /** Color of the connecting line between child and parent frames */
-      lineColor?: string;
-      /** Enable transform preloading */
-      enablePreloading?: boolean;
-    };
-    /** Sync camera with other 3d panels */
-    syncCamera?: boolean;
-    /** Toggles visibility of all topics */
-    topicsVisible?: boolean;
-  };
-  publish: {
-    /** The type of message to publish when clicking in the scene */
-    type: PublishClickType;
-    /** The topic on which to publish poses */
-    poseTopic: string;
-    /** The topic on which to publish points */
-    pointTopic: string;
-    /** The topic on which to publish pose estimates */
-    poseEstimateTopic: string;
-    /** The X standard deviation to publish with poses */
-    poseEstimateXDeviation: number;
-    /** The Y standard deviation to publish with poses */
-    poseEstimateYDeviation: number;
-    /** The theta standard deviation to publish with poses */
-    poseEstimateThetaDeviation: number;
-  };
-  /** frameId -> settings */
-  transforms: Record<string, Partial<LayerSettingsTransform> | undefined>;
-  /** topicName -> settings */
-  topics: Record<string, Partial<BaseSettings> | undefined>;
-  /** instanceId -> settings */
-  layers: Record<string, Partial<CustomLayerSettings> | undefined>;
-
-  /** Settings pertaining to Image mode */
-  imageMode: ImageModeConfig;
-};
+/** Callback for handling a message received on a topic */
+export type MessageHandler<T = unknown> = (messageEvent: MessageEvent<T>) => void;
 
 export type RendererSubscription<T = unknown> = {
   /** Preload the full history of topic messages as a best effort */

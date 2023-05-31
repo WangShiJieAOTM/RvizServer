@@ -10,6 +10,7 @@ import { PinholeCameraModel } from "@foxglove/den/image";
 import { ImageAnnotations as FoxgloveImageAnnotations } from "@foxglove/schemas";
 import { Immutable, MessageEvent, SettingsTreeAction, Topic } from "@foxglove/studio";
 import { Annotation } from "@foxglove/studio-base/panels/Image/types";
+import { namespaceTopic } from "@foxglove/studio-base/panels/ThreeDeeRender/namespaceTopic";
 import {
   ImageMarker as RosImageMarker,
   ImageMarkerArray as RosImageMarkerArray,
@@ -161,7 +162,8 @@ export class ImageAnnotations extends THREE.Object3D {
       messageEvent.schemaName as SchemaName,
     );
     if (!renderable) {
-      renderable = new RenderableTopicAnnotations(messageEvent.topic, this.#context.labelPool);
+      const topic = namespaceTopic(messageEvent.topic, messageEvent.schemaName);
+      renderable = new RenderableTopicAnnotations(topic, this.#context.labelPool);
       renderable.setScale(this.#scale, this.#canvasWidth, this.#canvasHeight, this.#pixelRatio);
       renderable.setCameraModel(this.#cameraModel);
       this.#renderablesByTopicAndSchemaName.set(
