@@ -122,8 +122,11 @@ export class ImageAnnotations extends THREE.Object3D {
   }
 
   #updateFromMessageState = (newState: MessageRenderState) => {
-    if (newState.annotationsByTopicSchema != undefined) {
-      for (const { originalMessage, annotations } of newState.annotationsByTopicSchema.values()) {
+    if (newState.annotationsByNamespacedTopic != undefined) {
+      for (const {
+        originalMessage,
+        annotations,
+      } of newState.annotationsByNamespacedTopic.values()) {
         this.#handleMessage(originalMessage, annotations);
       }
     }
@@ -175,15 +178,7 @@ export class ImageAnnotations extends THREE.Object3D {
     const namespacedTopic = namespaceTopic(topic.name, convertTo ?? topic.schemaName);
     this.#context.updateConfig((draft) => {
       const annotations = (draft.annotations ??= {});
-      let settings = annotations[namespacedTopic];
-      if (settings) {
-        settings.visible = visible;
-      } else {
-        settings = {
-          visible,
-        };
-        annotations[namespacedTopic] = settings;
-      }
+      annotations[namespacedTopic] = { visible };
     });
     this.#context.messageHandler.setConfig({
       annotations: this.#context.config().annotations,

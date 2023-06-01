@@ -51,7 +51,7 @@ describe("MessageHandler: synchronized = false", () => {
     const state = messageHandler.getRenderState();
 
     expect(state).toEqual({
-      annotationsByTopicSchema: new Map(),
+      annotationsByNamespacedTopic: new Map(),
     });
   });
   it("should have camera info if handled camera info", () => {
@@ -91,7 +91,7 @@ describe("MessageHandler: synchronized = false", () => {
     messageHandler.handleAnnotations(annotationMessage as MessageEvent<ImageAnnotations>);
     const state = messageHandler.getRenderState();
 
-    expect(state.annotationsByTopicSchema?.get(topic)).not.toBeUndefined();
+    expect(state.annotationsByNamespacedTopic?.get(topic)).not.toBeUndefined();
   });
   it("clears image if image topic changed", () => {
     const messageHandler = new MessageHandler({ synchronize: false, imageTopic: "image1" });
@@ -157,8 +157,8 @@ describe("MessageHandler: synchronized = false", () => {
     });
     const state = messageHandler.getRenderState();
 
-    expect(state.annotationsByTopicSchema?.get(topic1)).not.toBeUndefined();
-    expect(state.annotationsByTopicSchema?.get(topic2)).toBeUndefined();
+    expect(state.annotationsByNamespacedTopic?.get(topic1)).not.toBeUndefined();
+    expect(state.annotationsByNamespacedTopic?.get(topic2)).toBeUndefined();
   });
   it("listener function called whenever a message is handled or when config changes", () => {
     const { topic, messageHandler } = fixtures();
@@ -233,7 +233,7 @@ describe("MessageHandler: synchronized = true", () => {
     messageHandler.handleAnnotations(annotationMessage as MessageEvent<ImageAnnotations>);
     const state = messageHandler.getRenderState();
 
-    expect(state.annotationsByTopicSchema?.get(topic)).toBeUndefined();
+    expect(state.annotationsByNamespacedTopic?.get(topic)).toBeUndefined();
   });
 
   it("shows state with image and annotations if they have the same timestamp", () => {
@@ -257,7 +257,7 @@ describe("MessageHandler: synchronized = true", () => {
     const state = messageHandler.getRenderState();
 
     expect(state.image).not.toBeUndefined();
-    expect(state.annotationsByTopicSchema?.get(topic)).not.toBeUndefined();
+    expect(state.annotationsByNamespacedTopic?.get(topic)).not.toBeUndefined();
   });
 
   it("shows state without image and annotations if they have different header timestamps", () => {
@@ -281,7 +281,7 @@ describe("MessageHandler: synchronized = true", () => {
     const state = messageHandler.getRenderState();
 
     expect(state.image).toBeUndefined();
-    expect(state.annotationsByTopicSchema?.get(topic)).toBeUndefined();
+    expect(state.annotationsByNamespacedTopic?.get(topic)).toBeUndefined();
   });
 
   it("shows most recent image and annotations with same timestamps", () => {
@@ -322,7 +322,7 @@ describe("MessageHandler: synchronized = true", () => {
     const state = messageHandler.getRenderState();
 
     expect((state.image?.message as RawImage).timestamp).toEqual(fromNanoSec(time));
-    expect(state.annotationsByTopicSchema?.get(topic)?.annotations[0]?.stamp).toEqual(
+    expect(state.annotationsByNamespacedTopic?.get(topic)?.annotations[0]?.stamp).toEqual(
       fromNanoSec(time),
     );
   });
@@ -365,7 +365,7 @@ describe("MessageHandler: synchronized = true", () => {
     const state = messageHandler.getRenderState();
 
     expect((state.image?.message as RawImage).timestamp).toEqual(fromNanoSec(time));
-    expect(state.annotationsByTopicSchema?.get(topic)?.annotations[0]?.stamp).toEqual(
+    expect(state.annotationsByNamespacedTopic?.get(topic)?.annotations[0]?.stamp).toEqual(
       fromNanoSec(time),
     );
   });
@@ -401,7 +401,7 @@ describe("MessageHandler: synchronized = true", () => {
     const state = messageHandler.getRenderState();
 
     expect(state.image).toBeUndefined();
-    expect(state.annotationsByTopicSchema).toBeUndefined();
+    expect(state.annotationsByNamespacedTopic).toBeUndefined();
   });
 
   it("clears image when image topic changed", () => {
@@ -474,8 +474,8 @@ describe("MessageHandler: synchronized = true", () => {
     });
     const state = messageHandler.getRenderState();
 
-    expect(state.annotationsByTopicSchema?.get(topic1)).not.toBeUndefined();
-    expect(state.annotationsByTopicSchema?.get(topic2)).toBeUndefined();
+    expect(state.annotationsByNamespacedTopic?.get(topic1)).not.toBeUndefined();
+    expect(state.annotationsByNamespacedTopic?.get(topic2)).toBeUndefined();
   });
   it("listener function called whenever a message is handled or when config changes", () => {
     const { topic, messageHandler } = fixtures({

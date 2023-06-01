@@ -86,9 +86,6 @@ export type ImageModeConfig = {
   foregroundOpacity?: number;
 };
 
-/** Callback for handling a message received on a topic */
-export type MessageHandler<T = unknown> = (messageEvent: MessageEvent<T>) => void;
-
 export type RendererSubscription<T = unknown> = {
   /** Preload the full history of topic messages as a best effort */
   preload?: boolean;
