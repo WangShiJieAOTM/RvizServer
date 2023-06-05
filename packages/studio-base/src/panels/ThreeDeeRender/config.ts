@@ -3,6 +3,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
 import { Immutable as Im } from "immer";
+import { isEmpty } from "lodash";
 
 import { Topic } from "@foxglove/studio";
 import { FollowMode, ImageModeConfig } from "@foxglove/studio-base/panels/ThreeDeeRender/IRenderer";
@@ -15,7 +16,10 @@ import {
 } from "@foxglove/studio-base/panels/ThreeDeeRender/namespaceTopic";
 import { LayerSettingsTransform } from "@foxglove/studio-base/panels/ThreeDeeRender/renderables/FrameAxes";
 import { PublishClickType } from "@foxglove/studio-base/panels/ThreeDeeRender/renderables/PublishClickTool";
-import { URDF_TOPIC_NAME } from "@foxglove/studio-base/panels/ThreeDeeRender/renderables/Urdfs";
+import {
+  URDF_PARAM_KEY,
+  URDF_TOPIC_NAME,
+} from "@foxglove/studio-base/panels/ThreeDeeRender/renderables/Urdfs";
 import { ALL_ROS_DATATYPES } from "@foxglove/studio-base/panels/ThreeDeeRender/ros";
 import {
   BaseSettings,
@@ -118,35 +122,35 @@ export function migrateConfigTopicsNodes(
     return oldConfig;
   }
 
-  const unmigratedTopics: [string, undefined | Partial<BaseSettings>][] = [];
-  const newNamespacedTopics: [string, undefined | Partial<BaseSettings>][] = [];
+  const unmigratedTopics: Record<string, undefined | Partial<BaseSettings>> = {};
+  const newNamespacedTopics: Record<string, undefined | Partial<BaseSettings>> = {};
 
   for (const [key, config] of Object.entries(oldConfig.topics)) {
     const topic = topics.find((top) => top.name === key);
     if (topic) {
       if (topic.schemaName && ALL_SUPPORTED_SCHEMAS.has(topic.schemaName)) {
         const mappedKey = namespaceTopic(topic.name, topic.schemaName);
-        newNamespacedTopics.push([mappedKey, config]);
+        newNamespacedTopics[mappedKey] = config;
       } else {
         const convertibleSchema = topic.convertibleTo?.find((schema) =>
           ALL_SUPPORTED_SCHEMAS.has(schema),
         );
         if (convertibleSchema) {
           const mappedKey = namespaceTopic(topic.name, convertibleSchema);
-          newNamespacedTopics.push([mappedKey, config]);
+          newNamespacedTopics[mappedKey] = config;
         } else {
-          unmigratedTopics.push([key, config]);
+          unmigratedTopics[key] = config;
         }
       }
-    } else if (key === URDF_TOPIC_NAME) {
-      // special case URDF
-      newNamespacedTopics.push([key, config]);
+    } else if (key === URDF_TOPIC_NAME || key === URDF_PARAM_KEY) {
+      // special case pass through URDF keys
+      newNamespacedTopics[key] = config;
     } else {
-      unmigratedTopics.push([key, config]);
+      unmigratedTopics[key] = config;
     }
   }
 
-  if (newNamespacedTopics.length === 0) {
+  if (isEmpty(newNamespacedTopics)) {
     return oldConfig;
   }
 
@@ -154,8 +158,8 @@ export function migrateConfigTopicsNodes(
     ...oldConfig,
     namespacedTopics: {
       ...oldConfig.namespacedTopics,
-      ...Object.fromEntries(newNamespacedTopics),
+      ...newNamespacedTopics,
     },
-    topics: Object.fromEntries(unmigratedTopics),
+    topics: unmigratedTopics,
   };
 }

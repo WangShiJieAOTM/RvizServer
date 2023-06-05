@@ -5,7 +5,10 @@
 import { Topic } from "@foxglove/studio";
 import { DEFAULT_CAMERA_STATE } from "@foxglove/studio-base/panels/ThreeDeeRender/camera";
 import { DEFAULT_PUBLISH_SETTINGS } from "@foxglove/studio-base/panels/ThreeDeeRender/renderables/PublishSettings";
-import { URDF_TOPIC_NAME } from "@foxglove/studio-base/panels/ThreeDeeRender/renderables/Urdfs";
+import {
+  URDF_PARAM_KEY,
+  URDF_TOPIC_NAME,
+} from "@foxglove/studio-base/panels/ThreeDeeRender/renderables/Urdfs";
 
 import { RendererConfig, migrateConfigTopicsNodes } from "./config";
 
@@ -27,6 +30,7 @@ describe("migrateConfigTopicNodes", () => {
         topic_a: {},
         topic_b: {},
         topic_c: {},
+        [URDF_PARAM_KEY]: {},
         [URDF_TOPIC_NAME]: {},
       },
       transforms: {},
@@ -48,6 +52,7 @@ describe("migrateConfigTopicNodes", () => {
       namespacedTopics: {
         "topic_a:foxglove.Grid": {},
         "topic_c:foxglove.RawImage": {},
+        [URDF_PARAM_KEY]: {},
         [URDF_TOPIC_NAME]: {},
       },
       topics: {

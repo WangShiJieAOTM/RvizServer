@@ -51,6 +51,8 @@ export const URDF_TOPIC_NAME = TOPIC_NAME;
 
 /** ID of fake "topic" used to represent the /robot_description parameter */
 const PARAM_KEY = "param:/robot_description";
+export const URDF_PARAM_KEY = PARAM_KEY;
+
 /** Standard parameter name used for URDF data in ROS */
 const PARAM_NAME = "/robot_description";
 const PARAM_DISPLAY_NAME = "/robot_description (parameter)";
