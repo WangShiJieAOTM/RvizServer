@@ -94,7 +94,7 @@ class LinePrimitiveRenderable extends THREE.Object3D {
   #colorBuffer: Float32Array | undefined;
 
   #material: LineMaterial;
-  #pickingMaterial: THREE.ShaderMaterial;
+  #pickingMaterial: PickingMaterial;
   #transparent: boolean = true;
   #line: LineSegments2 | Line2 | undefined;
 
@@ -119,26 +119,11 @@ class LinePrimitiveRenderable extends THREE.Object3D {
     });
     this.#material.lineWidth = primitive.thickness; // Fix for THREE.js type annotations
 
-    this.#pickingMaterial = new THREE.ShaderMaterial({
-      vertexShader: this.#material.vertexShader,
-      fragmentShader: /* glsl */ `
-      uniform vec4 objectId;
-      void main() {
-        gl_FragColor = objectId;
-      }
-    `,
-      clipping: true,
-      uniforms: {
-        objectId: { value: [NaN, NaN, NaN, NaN] },
-        linewidth: { value: primitive.thickness },
-        resolution: { value: canvasSize },
-        dashOffset: { value: 0 },
-        dashScale: { value: 1 },
-        dashSize: { value: 1 },
-        gapSize: { value: 1 },
-      },
-      defines: !primitive.scale_invariant ? { WORLD_UNITS: "" } : {},
-    });
+    this.#pickingMaterial = new PickingMaterial();
+    this.#pickingMaterial.resolution.set(canvasSize.x, canvasSize.y);
+    this.#pickingMaterial.lineWidth = primitive.thickness;
+    this.#pickingMaterial.worldUnits = !primitive.scale_invariant;
+    this.#pickingMaterial.needsUpdate = true;
   }
 
   public setSettings(settings: LayerSettingsEntity): void {
@@ -286,16 +271,11 @@ class LinePrimitiveRenderable extends THREE.Object3D {
     }
     this.#material.linewidth = this.#primitive.thickness;
     this.#material.transparent = this.#transparent;
-
+    this.#material.worldUnits = !this.#primitive.scale_invariant;
     this.#material.needsUpdate = true;
 
-    this.#pickingMaterial.uniforms.linewidth!.value = this.#primitive.thickness;
-    const scaleInvariantDisabled = this.#pickingMaterial.defines.WORLD_UNITS === "";
-    if (scaleInvariantDisabled && this.#primitive.scale_invariant) {
-      this.#pickingMaterial.defines.WORLD_UNITS = "";
-    } else {
-      this.#pickingMaterial.defines = {};
-    }
+    this.#pickingMaterial.linewidth = this.#primitive.thickness;
+    this.#pickingMaterial.worldUnits = !this.#primitive.scale_invariant;
     this.#pickingMaterial.uniformsNeedUpdate = true;
     this.#pickingMaterial.needsUpdate = true;
   }
@@ -386,5 +366,27 @@ function serializeColorsWithIndices(colorsOut: Float32Array, primitive: LinePrim
   const isLoop = primitive.type === LineType.LINE_LOOP;
   if (isLoop && colorsOut.length > 4) {
     colorsOut.copyWithin(i, 0, 4);
+  }
+}
+
+class PickingMaterial extends LineMaterial {
+  public constructor() {
+    super({
+      worldUnits: false,
+      vertexColors: false,
+      linewidth: 0,
+      transparent: false,
+    });
+    this.uniforms.objectId = { value: [NaN, NaN, NaN, NaN] };
+  }
+
+  public override onBeforeCompile(shader: THREE.Shader, renderer: THREE.WebGLRenderer): void {
+    super.onBeforeCompile(shader, renderer);
+    shader.fragmentShader = /* glsl */ `
+      uniform vec4 objectId;
+      void main() {
+        gl_FragColor = objectId;
+      }
+    `;
   }
 }
