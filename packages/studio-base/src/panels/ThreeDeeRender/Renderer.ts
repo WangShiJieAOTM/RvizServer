@@ -1298,6 +1298,13 @@ export class Renderer extends EventEmitter<RendererEvents> implements IRenderer 
         if (material.uniforms?.resolution) {
           material.uniforms.resolution.value = resolution;
         }
+        const pickingMaterial = mesh.userData.pickingMaterial;
+        if (pickingMaterial?.resolution != undefined) {
+          pickingMaterial.resolution.copy(resolution);
+        }
+        if (pickingMaterial?.uniforms?.resolution != undefined) {
+          pickingMaterial.uniforms.resolution.value = resolution;
+        }
       }
     });
   }
