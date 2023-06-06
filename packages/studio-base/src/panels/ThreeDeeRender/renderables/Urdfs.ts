@@ -11,7 +11,10 @@ import { UrdfGeometryMesh, UrdfRobot, UrdfVisual, parseRobot, UrdfJoint } from "
 import Logger from "@foxglove/log";
 import { toNanoSec } from "@foxglove/rostime";
 import { SettingsTreeAction, SettingsTreeChildren, SettingsTreeFields } from "@foxglove/studio";
-import { NamespacedTopic } from "@foxglove/studio-base/panels/ThreeDeeRender/namespaceTopic";
+import {
+  NamespacedTopic,
+  namespaceTopic,
+} from "@foxglove/studio-base/panels/ThreeDeeRender/namespaceTopic";
 import { eulerToQuaternion } from "@foxglove/studio-base/util/geometry";
 import isDesktopApp from "@foxglove/studio-base/util/isDesktopApp";
 
@@ -47,11 +50,9 @@ const log = Logger.getLogger(__filename);
 
 const LAYER_ID = "foxglove.Urdf";
 const TOPIC_NAME = "/robot_description";
-export const URDF_TOPIC_NAME = TOPIC_NAME;
 
 /** ID of fake "topic" used to represent the /robot_description parameter */
 const PARAM_KEY = "param:/robot_description";
-export const URDF_PARAM_KEY = PARAM_KEY;
 
 /** Standard parameter name used for URDF data in ROS */
 const PARAM_NAME = "/robot_description";
@@ -197,9 +198,9 @@ export class Urdfs extends SceneExtension<UrdfRenderable> {
     const entries: SettingsTreeEntry[] = [];
 
     // /robot_description topic entry
-    const namespacedTopic = TOPIC_NAME as NamespacedTopic;
     const topic = this.renderer.topicsByName?.get(TOPIC_NAME);
     if (topic != undefined) {
+      const namespacedTopic = namespaceTopic(topic.name, topic.schemaName);
       const config = (this.renderer.config.namespacedTopics[namespacedTopic] ??
         {}) as Partial<LayerSettingsUrdf>;
       entries.push({

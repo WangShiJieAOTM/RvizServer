@@ -2,21 +2,12 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-import {
-  URDF_PARAM_KEY,
-  URDF_TOPIC_NAME,
-} from "@foxglove/studio-base/panels/ThreeDeeRender/renderables/Urdfs";
-
 export type NamespacedTopic = string & { __type: "namespaced_topic" };
 
 /**
  * Creates a namespaced topic out of a topic out of a combination of a topic + schema.
  */
 export function namespaceTopic(topic: string, schema: string): NamespacedTopic {
-  // Special case URDF keys.
-  if (topic === URDF_TOPIC_NAME || topic === URDF_PARAM_KEY) {
-    return topic as NamespacedTopic;
-  }
   return `${encodeURIComponent(topic)}:${encodeURIComponent(schema)}` as NamespacedTopic;
 }
 

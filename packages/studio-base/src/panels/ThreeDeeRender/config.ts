@@ -16,10 +16,6 @@ import {
 } from "@foxglove/studio-base/panels/ThreeDeeRender/namespaceTopic";
 import { LayerSettingsTransform } from "@foxglove/studio-base/panels/ThreeDeeRender/renderables/FrameAxes";
 import { PublishClickType } from "@foxglove/studio-base/panels/ThreeDeeRender/renderables/PublishClickTool";
-import {
-  URDF_PARAM_KEY,
-  URDF_TOPIC_NAME,
-} from "@foxglove/studio-base/panels/ThreeDeeRender/renderables/Urdfs";
 import { ALL_ROS_DATATYPES } from "@foxglove/studio-base/panels/ThreeDeeRender/ros";
 import {
   BaseSettings,
@@ -103,7 +99,11 @@ type RendererConfigV2 = RendererConfigV1 & {
 export type AnyRendererConfig = RendererConfigV1 | RendererConfigV2;
 export type RendererConfig = RendererConfigV2;
 
-const ALL_SUPPORTED_SCHEMAS = new Set([...ALL_ROS_DATATYPES, ...ALL_FOXGLOVE_DATATYPES]);
+const ALL_SUPPORTED_SCHEMAS = new Set([
+  ...ALL_ROS_DATATYPES,
+  ...ALL_FOXGLOVE_DATATYPES,
+  "std_msgs/String",
+]);
 
 /**
  * Migrates the old, unnamespaced `topics` nodes in a config into the new `namespacedTopics`
@@ -127,10 +127,7 @@ export function migrateConfigTopicsNodes(
 
   for (const [key, config] of Object.entries(oldConfig.topics)) {
     const topic = topics.find((top) => top.name === key);
-    if (key === URDF_TOPIC_NAME || key === URDF_PARAM_KEY) {
-      // special case pass through URDF keys
-      newNamespacedTopics[key] = config;
-    } else if (topic) {
+    if (topic) {
       if (topic.schemaName && ALL_SUPPORTED_SCHEMAS.has(topic.schemaName)) {
         const mappedKey = namespaceTopic(topic.name, topic.schemaName);
         newNamespacedTopics[mappedKey] = config;

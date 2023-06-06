@@ -4,11 +4,8 @@
 
 import { Topic } from "@foxglove/studio";
 import { DEFAULT_CAMERA_STATE } from "@foxglove/studio-base/panels/ThreeDeeRender/camera";
+import { namespaceTopic } from "@foxglove/studio-base/panels/ThreeDeeRender/namespaceTopic";
 import { DEFAULT_PUBLISH_SETTINGS } from "@foxglove/studio-base/panels/ThreeDeeRender/renderables/PublishSettings";
-import {
-  URDF_PARAM_KEY,
-  URDF_TOPIC_NAME,
-} from "@foxglove/studio-base/panels/ThreeDeeRender/renderables/Urdfs";
 
 import { RendererConfig, migrateConfigTopicsNodes } from "./config";
 
@@ -30,8 +27,7 @@ describe("migrateConfigTopicNodes", () => {
         topic_a: {},
         topic_b: {},
         topic_c: {},
-        [URDF_PARAM_KEY]: {},
-        [URDF_TOPIC_NAME]: {},
+        "/robot_description": {},
       },
       transforms: {},
       version: "2",
@@ -45,6 +41,7 @@ describe("migrateConfigTopicNodes", () => {
         datatype: "datatype_a",
         convertibleTo: ["foxglove.RawImage"],
       },
+      { name: "/robot_description", schemaName: "std_msgs/String", datatype: "datatype_a" },
     ];
 
     const migrated = migrateConfigTopicsNodes(oldConfig, topics);
@@ -52,8 +49,7 @@ describe("migrateConfigTopicNodes", () => {
       namespacedTopics: {
         "topic_a:foxglove.Grid": {},
         "topic_c:foxglove.RawImage": {},
-        [URDF_PARAM_KEY]: {},
-        [URDF_TOPIC_NAME]: {},
+        [namespaceTopic("/robot_description", "std_msgs/String")]: {},
       },
       topics: {
         topic_b: {},
