@@ -14,6 +14,14 @@ import { DEFAULT_PUBLISH_SETTINGS } from "@foxglove/studio-base/panels/ThreeDeeR
 
 import { AnyRendererConfig, RendererConfig, migrateConfigTopicsNodes } from "./config";
 
+/**
+ * Fills out missing pieces of a 3d panel config and performs any migrations necessary to
+ * the current version.
+ *
+ * @param initialState initial state obtained from the stored config
+ * @param topics topics used to guide migration of unnamespaced topics
+ * @returns a migrated config
+ */
 export function useMigratedThreeDeeConfig(
   initialState: undefined | DeepPartial<AnyRendererConfig>,
   topics: undefined | Immutable<Topic[]>,

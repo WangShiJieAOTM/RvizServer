@@ -23,7 +23,7 @@ import { missingTransformMessage, MISSING_TRANSFORM } from "./transforms";
 import type { AnyRendererSubscription, IRenderer } from "../IRenderer";
 import { BaseUserData, Renderable } from "../Renderable";
 import { PartialMessageEvent, SceneExtension } from "../SceneExtension";
-import { SettingsTreeEntry } from "../SettingsManager";
+import { SettingsPath, SettingsTreeEntry } from "../SettingsManager";
 import {
   ColorRGBA,
   JointState,
@@ -561,7 +561,9 @@ export class Urdfs extends SceneExtension<UrdfRenderable> {
 
     const isTopicOrParam = instanceId === TOPIC_NAME || instanceId === PARAM_KEY;
     const frameId = this.renderer.fixedFrameId ?? ""; // Unused
-    const settingsPath = isTopicOrParam ? ["topics", instanceId] : ["layers", instanceId];
+    const settingsPath: SettingsPath = isTopicOrParam
+      ? ["namespacedTopics", instanceId as NamespacedTopic]
+      : ["layers", instanceId];
     const settings = this.#getCurrentSettings(instanceId);
     const url = (settings as Partial<LayerSettingsCustomUrdf>).url;
 
@@ -669,7 +671,9 @@ export class Urdfs extends SceneExtension<UrdfRenderable> {
 
     // Import all transforms from the URDF into the scene
     const isTopicOrParam = instanceId === TOPIC_NAME || instanceId === PARAM_KEY;
-    const settingsPath = isTopicOrParam ? ["topics", instanceId] : ["layers", instanceId];
+    const settingsPath: SettingsPath = isTopicOrParam
+      ? ["namespacedTopics", instanceId as NamespacedTopic]
+      : ["layers", instanceId];
     for (const { parent, child, translation, rotation } of transforms) {
       this.renderer.addTransform(parent, child, 0n, translation, rotation, settingsPath);
     }

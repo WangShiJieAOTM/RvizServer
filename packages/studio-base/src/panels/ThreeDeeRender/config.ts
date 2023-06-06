@@ -127,7 +127,10 @@ export function migrateConfigTopicsNodes(
 
   for (const [key, config] of Object.entries(oldConfig.topics)) {
     const topic = topics.find((top) => top.name === key);
-    if (topic) {
+    if (key === URDF_TOPIC_NAME || key === URDF_PARAM_KEY) {
+      // special case pass through URDF keys
+      newNamespacedTopics[key] = config;
+    } else if (topic) {
       if (topic.schemaName && ALL_SUPPORTED_SCHEMAS.has(topic.schemaName)) {
         const mappedKey = namespaceTopic(topic.name, topic.schemaName);
         newNamespacedTopics[mappedKey] = config;
@@ -142,9 +145,6 @@ export function migrateConfigTopicsNodes(
           unmigratedTopics[key] = config;
         }
       }
-    } else if (key === URDF_TOPIC_NAME || key === URDF_PARAM_KEY) {
-      // special case pass through URDF keys
-      newNamespacedTopics[key] = config;
     } else {
       unmigratedTopics[key] = config;
     }

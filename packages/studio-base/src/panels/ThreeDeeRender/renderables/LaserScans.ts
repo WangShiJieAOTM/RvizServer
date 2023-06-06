@@ -408,7 +408,7 @@ export class LaserScans extends SceneExtension<LaserScanRenderable> {
         messageTime,
         frameId: this.renderer.normalizeFrameId(laserScan.frame_id),
         pose: laserScan.pose,
-        settingsPath: ["topics", topic],
+        settingsPath: ["namespacedTopics", topic],
         settings,
         topic,
         laserScan,

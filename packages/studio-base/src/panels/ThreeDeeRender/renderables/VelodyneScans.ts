@@ -254,7 +254,7 @@ export class VelodyneScans extends SceneExtension<PointCloudRenderable> {
         messageTime,
         frameId: this.renderer.normalizeFrameId(pointCloud.frame_id),
         pose: makePose(),
-        settingsPath: ["topics", topic],
+        settingsPath: ["namespacedTopics", topic],
         settings,
         topic,
         pointCloud,

@@ -272,13 +272,9 @@ const ImageWith3D = (initialConfig: ImageModeConfig): JSX.Element => {
               [namespaceTopic("annotations", "foxglove.ImageAnnotations")]: { visible: true },
             },
           },
-          topics: {
-            sceneUpdate1: {
-              visible: false,
-            },
-            sceneUpdate2: {
-              visible: true,
-            },
+          namespacedTopics: {
+            [namespaceTopic("sceneUpdate1", "foxglove.SceneUpdate")]: { visible: false },
+            [namespaceTopic("sceneUpdate2", "foxglove.SceneUpdate")]: { visible: true },
           },
         }}
       />

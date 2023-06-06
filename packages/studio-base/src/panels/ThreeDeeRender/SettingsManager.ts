@@ -20,13 +20,15 @@ export type SettingsPath =
   | ["imageAnnotations"]
   | ["imageAnnotations", string]
   | ["imageMode"]
+  | ["imageMode", "imageTopic"]
   | ["layers"]
   | ["layers", string]
   | ["namespacedTopics"]
   | ["namespacedTopics", NamespacedTopic]
   | ["publish"]
   | ["scene"]
-  | ["transforms"];
+  | ["transforms"]
+  | ["transforms", string];
 
 export type SettingsTreeEntry = { path: SettingsPath; node: SettingsTreeNodeWithActionHandler };
 

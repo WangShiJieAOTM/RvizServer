@@ -285,7 +285,9 @@ export class PoseArrays extends SceneExtension<PoseArrayRenderable> {
       const userSettings = this.renderer.config.namespacedTopics[topic] as
         | Partial<LayerSettingsPoseArray>
         | undefined;
-      const defaultType = { type: getDefaultType(this.renderer.topicsByName?.get(topic)) };
+      const defaultType = {
+        type: getDefaultType(this.renderer.topicsByName?.get(messageEvent.topic)),
+      };
       const settings = { ...DEFAULT_SETTINGS, ...defaultType, ...userSettings };
 
       renderable = new PoseArrayRenderable(topic, this.renderer, {
@@ -293,7 +295,7 @@ export class PoseArrays extends SceneExtension<PoseArrayRenderable> {
         messageTime: toNanoSec(poseArrayMessage.header.stamp),
         frameId: this.renderer.normalizeFrameId(poseArrayMessage.header.frame_id),
         pose: makePose(),
-        settingsPath: ["namespacedTopic", topic],
+        settingsPath: ["namespacedTopics", topic],
         settings,
         topic,
         poseArrayMessage,

@@ -523,7 +523,7 @@ export class FoxgloveGrid extends SceneExtension<FoxgloveGridRenderable> {
         messageTime: toNanoSec(foxgloveGrid.timestamp),
         frameId: this.renderer.normalizeFrameId(foxgloveGrid.frame_id),
         pose: foxgloveGrid.pose,
-        settingsPath: ["topics", topic],
+        settingsPath: ["namespacedTopics", topic],
         settings,
         topic,
         foxgloveGrid,

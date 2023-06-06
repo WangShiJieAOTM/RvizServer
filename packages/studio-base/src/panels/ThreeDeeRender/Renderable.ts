@@ -4,6 +4,7 @@
 
 import * as THREE from "three";
 
+import { SettingsPath } from "@foxglove/studio-base/panels/ThreeDeeRender/SettingsManager";
 import type { RosValue } from "@foxglove/studio-base/players/types";
 
 import type { IRenderer } from "./IRenderer";
@@ -23,7 +24,7 @@ export type BaseUserData = {
   /** Local position and orientation of the Renderable */
   pose: Pose;
   /** Settings tree path where errors will be displayed */
-  settingsPath: ReadonlyArray<string>;
+  settingsPath: [] | SettingsPath;
   /** User-customizable settings for this Renderable */
   settings: BaseSettings;
   /** Topic that the Renderable belongs to, if applicable*/

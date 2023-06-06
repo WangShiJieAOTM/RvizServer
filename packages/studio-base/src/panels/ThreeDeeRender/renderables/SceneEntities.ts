@@ -180,7 +180,7 @@ export class FoxgloveSceneEntities extends SceneExtension<TopicEntities> {
         messageTime: -1n,
         frameId: "",
         pose: makePose(),
-        settingsPath: ["topics", topic],
+        settingsPath: ["namespacedTopics", topic],
         topic,
         settings: { ...SCENE_ENTITIES_DEFAULT_SETTINGS, ...userSettings },
       });

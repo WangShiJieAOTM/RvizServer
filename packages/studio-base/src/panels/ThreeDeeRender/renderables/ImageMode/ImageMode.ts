@@ -35,7 +35,7 @@ import { MessageHandler, MessageRenderState } from "./MessageHandler";
 import { ImageAnnotations } from "./annotations/ImageAnnotations";
 import type { AnyRendererSubscription, IRenderer, ImageModeConfig } from "../../IRenderer";
 import { PartialMessageEvent, SceneExtension } from "../../SceneExtension";
-import { SettingsTreeEntry } from "../../SettingsManager";
+import { SettingsPath, SettingsTreeEntry } from "../../SettingsManager";
 import {
   CAMERA_CALIBRATION_DATATYPES,
   COMPRESSED_IMAGE_DATATYPES,
@@ -52,7 +52,7 @@ import { ICameraHandler } from "../ICameraHandler";
 import { BitmapCache } from "../Images/BitmapCache";
 import { getTopicMatchPrefix, sortPrefixMatchesToFront } from "../Images/topicPrefixMatching";
 
-const IMAGE_TOPIC_PATH = ["imageMode", "imageTopic"];
+const IMAGE_TOPIC_PATH: SettingsPath = ["imageMode", "imageTopic"];
 const CALIBRATION_TOPIC_PATH = ["imageMode", "calibrationTopic"];
 
 const IMAGE_TOPIC_UNAVAILABLE = "IMAGE_TOPIC_UNAVAILABLE";

@@ -159,10 +159,10 @@ export class Markers extends SceneExtension<TopicMarkers> {
 
     this.renderer.updateConfig((draft) => {
       // We build the settings tree with paths of the form
-      //   ["topics", <topic>, "ns:"<namespace>, "visible"]
+      //   ["namespacedTopics", <topic>, "ns:"<namespace>, "visible"]
       // but the config is stored with paths of the form
-      //   ["topics", <topic>, "namespaces", <namespace>, "visible"]
-      const actualPath = ["topics", topicName, "namespaces", namespace, fieldName];
+      //   ["namespacedTopics", <topic>, "namespaces", <namespace>, "visible"]
+      const actualPath = ["namespacedTopics", topicName, "namespaces", namespace, fieldName];
       set(draft, actualPath, action.payload.value);
     });
 
@@ -247,7 +247,7 @@ export class Markers extends SceneExtension<TopicMarkers> {
         messageTime: toNanoSec(marker.header.stamp),
         frameId: this.renderer.normalizeFrameId(marker.header.frame_id),
         pose: makePose(),
-        settingsPath: ["topics", topic],
+        settingsPath: ["namespacedTopics", topic],
         topic,
         settings: { ...DEFAULT_SETTINGS, ...userSettings },
       });

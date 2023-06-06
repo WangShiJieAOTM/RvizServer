@@ -683,7 +683,7 @@ export class Renderer extends EventEmitter<RendererEvents> implements IRenderer 
   /** Adds errors to visible topic nodes when calibration is undefined */
   #imageOnlyModeTopicSettingsValidator = (entry: SettingsTreeEntry, errors: LayerErrors) => {
     const { path, node } = entry;
-    if (path[0] === "topics") {
+    if (path[0] === "namespacedTopics") {
       if (node.visible === true) {
         errors.addToTopic(
           path[1]!,
