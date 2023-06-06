@@ -13,6 +13,7 @@ import {
   CREATE_BITMAP_ERR_KEY,
   IMAGE_RENDERABLE_DEFAULT_SETTINGS,
   ImageRenderable,
+  ImageRenderableSettings,
 } from "@foxglove/studio-base/panels/ThreeDeeRender/renderables/Images/ImageRenderable";
 import {
   AnyImage,
@@ -28,7 +29,7 @@ import { makePose } from "@foxglove/studio-base/panels/ThreeDeeRender/transforms
 import { ImageModeCamera } from "./ImageModeCamera";
 import { MessageHandler, MessageRenderState } from "./MessageHandler";
 import { ImageAnnotations } from "./annotations/ImageAnnotations";
-import type { IRenderer, ImageModeConfig } from "../../IRenderer";
+import type { AnyRendererSubscription, IRenderer, ImageModeConfig } from "../../IRenderer";
 import { PartialMessageEvent, SceneExtension } from "../../SceneExtension";
 import { SettingsTreeEntry } from "../../SettingsManager";
 import {
@@ -44,7 +45,7 @@ import {
 } from "../../ros";
 import { topicIsConvertibleToSchema } from "../../topicIsConvertibleToSchema";
 import { ICameraHandler } from "../ICameraHandler";
-import { decodeCompressedImageToBitmap } from "../Images/decodeImage";
+import { BitmapCache } from "../Images/BitmapCache";
 import { getTopicMatchPrefix, sortPrefixMatchesToFront } from "../Images/topicPrefixMatching";
 
 const IMAGE_TOPIC_PATH = ["imageMode", "imageTopic"];
@@ -52,7 +53,6 @@ const CALIBRATION_TOPIC_PATH = ["imageMode", "calibrationTopic"];
 
 const IMAGE_TOPIC_UNAVAILABLE = "IMAGE_TOPIC_UNAVAILABLE";
 const CALIBRATION_TOPIC_UNAVAILABLE = "CALIBRATION_TOPIC_UNAVAILABLE";
-const FALLBACK_CALIBRATION_ACTIVE_ALERT_KEY = "FALLBACK_CALIBRATION_ACTIVE";
 
 const MISSING_CAMERA_INFO = "MISSING_CAMERA_INFO";
 const IMAGE_TOPIC_DIFFERENT_FRAME = "IMAGE_TOPIC_DIFFERENT_FRAME";
@@ -60,7 +60,6 @@ const IMAGE_TOPIC_DIFFERENT_FRAME = "IMAGE_TOPIC_DIFFERENT_FRAME";
 const CAMERA_MODEL = "CameraModel";
 
 const DEFAULT_FOCAL_LENGTH = 500;
-const DEFAULT_IMAGE_WIDTH = 512;
 
 type ImageModeEvent = { type: "hasModifiedViewChanged" };
 
@@ -81,6 +80,7 @@ const DEFAULT_CONFIG = {
   flipHorizontal: false,
   flipVertical: false,
   rotation: 0 as 0 | 90 | 180 | 270,
+  foregroundOpacity: 0.0,
 };
 
 type ConfigWithDefaults = ImageModeConfig & typeof DEFAULT_CONFIG;
@@ -111,6 +111,9 @@ export class ImageMode
 
   // eslint-disable-next-line @foxglove/no-boolean-parameters
   #setHasCalibrationTopic: (hasCalibrationTopic: boolean) => void;
+
+  /** Cache of decoded bitmaps to avoid flickering when toggling topics */
+  #bitmapCache = new BitmapCache();
 
   /**
    * @param canvasSize Canvas size in CSS pixels
@@ -158,9 +161,6 @@ export class ImageMode
       },
       updateSettingsTree: () => {
         this.updateSettingsTree();
-      },
-      addSchemaSubscriptions: (schemaNames, handler) => {
-        renderer.addSchemaSubscriptions(schemaNames, handler);
       },
       labelPool: renderer.labelPool,
       messageHandler: this.#messageHandler,
@@ -211,31 +211,50 @@ export class ImageMode
     this.dispatchEvent({ type: "hasModifiedViewChanged" });
   }
 
-  public override addSubscriptionsToRenderer(): void {
-    const renderer = this.renderer;
-    renderer.addSchemaSubscriptions(ALL_SUPPORTED_CALIBRATION_SCHEMAS, {
-      handler: this.#messageHandler.handleCameraInfo,
-      shouldSubscribe: this.#cameraInfoShouldSubscribe,
-    });
-
-    renderer.addSchemaSubscriptions(ROS_IMAGE_DATATYPES, {
-      handler: this.#messageHandler.handleRosRawImage,
-      shouldSubscribe: this.#imageShouldSubscribe,
-    });
-    renderer.addSchemaSubscriptions(ROS_COMPRESSED_IMAGE_DATATYPES, {
-      handler: this.#messageHandler.handleRosCompressedImage,
-      shouldSubscribe: this.#imageShouldSubscribe,
-    });
-
-    renderer.addSchemaSubscriptions(RAW_IMAGE_DATATYPES, {
-      handler: this.#messageHandler.handleRawImage,
-      shouldSubscribe: this.#imageShouldSubscribe,
-    });
-    renderer.addSchemaSubscriptions(COMPRESSED_IMAGE_DATATYPES, {
-      handler: this.#messageHandler.handleCompressedImage,
-      shouldSubscribe: this.#imageShouldSubscribe,
-    });
-    this.#annotations.addSubscriptions();
+  public override getSubscriptions(): readonly AnyRendererSubscription[] {
+    const subscriptions: AnyRendererSubscription[] = [
+      {
+        type: "schema",
+        schemaNames: ALL_SUPPORTED_CALIBRATION_SCHEMAS,
+        subscription: {
+          handler: this.#messageHandler.handleCameraInfo,
+          shouldSubscribe: this.#cameraInfoShouldSubscribe,
+        },
+      },
+      {
+        type: "schema",
+        schemaNames: ROS_IMAGE_DATATYPES,
+        subscription: {
+          handler: this.#messageHandler.handleRosRawImage,
+          shouldSubscribe: this.#imageShouldSubscribe,
+        },
+      },
+      {
+        type: "schema",
+        schemaNames: ROS_COMPRESSED_IMAGE_DATATYPES,
+        subscription: {
+          handler: this.#messageHandler.handleRosCompressedImage,
+          shouldSubscribe: this.#imageShouldSubscribe,
+        },
+      },
+      {
+        type: "schema",
+        schemaNames: RAW_IMAGE_DATATYPES,
+        subscription: {
+          handler: this.#messageHandler.handleRawImage,
+          shouldSubscribe: this.#imageShouldSubscribe,
+        },
+      },
+      {
+        type: "schema",
+        schemaNames: COMPRESSED_IMAGE_DATATYPES,
+        subscription: {
+          handler: this.#messageHandler.handleCompressedImage,
+          shouldSubscribe: this.#imageShouldSubscribe,
+        },
+      },
+    ];
+    return subscriptions.concat(this.#annotations.getSubscriptions());
   }
 
   public override dispose(): void {
@@ -304,8 +323,17 @@ export class ImageMode
   public override settingsNodes(): SettingsTreeEntry[] {
     const handler = this.handleSettingsAction;
 
-    const { imageTopic, calibrationTopic, synchronize, flipHorizontal, flipVertical, rotation } =
-      this.#getImageModeSettings();
+    const {
+      imageTopic,
+      calibrationTopic,
+      synchronize,
+      flipHorizontal,
+      flipVertical,
+      rotation,
+      minValue,
+      maxValue,
+      foregroundOpacity,
+    } = this.#getImageModeSettings();
 
     const imageTopics = filterMap(this.renderer.topics ?? [], (topic) => {
       if (!topicIsConvertibleToSchema(topic, ALL_SUPPORTED_IMAGE_SCHEMAS)) {
@@ -352,25 +380,9 @@ export class ImageMode
       this.renderer.settings.errors.remove(CALIBRATION_TOPIC_PATH, CALIBRATION_TOPIC_UNAVAILABLE);
     }
 
-    if (this.#fallbackCameraModelActive()) {
-      this.renderer.settings.errors.add(
-        CALIBRATION_TOPIC_PATH,
-        FALLBACK_CALIBRATION_ACTIVE_ALERT_KEY,
-        `This mode uses a fallback camera model based on the image. 3D Topics and transforms will not be available.`,
-      );
-    } else {
-      this.renderer.settings.errors.remove(
-        CALIBRATION_TOPIC_PATH,
-        FALLBACK_CALIBRATION_ACTIVE_ALERT_KEY,
-      );
-    }
     const imageTopicError = this.renderer.settings.errors.errors.errorAtPath(IMAGE_TOPIC_PATH);
     const calibrationTopicError =
       this.renderer.settings.errors.errors.errorAtPath(CALIBRATION_TOPIC_PATH);
-
-    // Not yet implemented
-    // const minValue: number | undefined = undefined;
-    // const maxValue: number | undefined = undefined;
 
     const fields: SettingsTreeFields = {};
     fields.imageTopic = {
@@ -413,20 +425,32 @@ export class ImageMode
         { label: "270°", value: 270 },
       ],
     };
-    // fields.TODO_minValue = {
-    //   readonly: true,
-    //   input: "number",
-    //   label: "🚧 Min (depth images)",
-    //   placeholder: "0",
-    //   value: minValue,
-    // };
-    // fields.TODO_maxValue = {
-    //   readonly: true,
-    //   input: "number",
-    //   label: "🚧 Max (depth images)",
-    //   placeholder: "10000",
-    //   value: maxValue,
-    // };
+    fields.minValue = {
+      input: "number",
+      label: "Min (depth images)",
+      placeholder: "0",
+      step: 1,
+      precision: 0,
+      value: minValue,
+    };
+    fields.maxValue = {
+      input: "number",
+      label: "Max (depth images)",
+      placeholder: "10000",
+      step: 1,
+      precision: 0,
+      value: maxValue,
+    };
+    fields.foregroundOpacity = {
+      input: "number",
+      label: "Foreground opacity",
+      placeholder: "0.50",
+      step: 0.05,
+      precision: 3,
+      min: 0,
+      max: 1,
+      value: foregroundOpacity,
+    };
     return [
       {
         path: ["imageMode"],
@@ -478,18 +502,29 @@ export class ImageMode
       }
 
       if (config.rotation !== prevImageModeConfig.rotation) {
-        this.#imageRenderable?.setRotation(config.rotation);
         this.#camera.setRotation(config.rotation);
       }
-
       if (config.flipHorizontal !== prevImageModeConfig.flipHorizontal) {
-        this.#imageRenderable?.setFlipHorizontal(config.flipHorizontal);
         this.#camera.setFlipHorizontal(config.flipHorizontal);
       }
-
       if (config.flipVertical !== prevImageModeConfig.flipVertical) {
-        this.#imageRenderable?.setFlipVertical(config.flipVertical);
         this.#camera.setFlipVertical(config.flipVertical);
+      }
+      if (config.foregroundOpacity !== prevImageModeConfig.foregroundOpacity) {
+        this.#imageRenderable?.setSettings({
+          ...this.#imageRenderable.userData.settings,
+          foregroundOpacity: config.foregroundOpacity,
+        });
+      }
+      if (
+        config.minValue !== prevImageModeConfig.minValue ||
+        config.maxValue !== prevImageModeConfig.maxValue
+      ) {
+        this.#imageRenderable?.setSettings({
+          ...this.#imageRenderable.userData.settings,
+          minValue: config.minValue,
+          maxValue: config.maxValue,
+        });
       }
       if (config.synchronize !== prevImageModeConfig.synchronize) {
         this.removeAllRenderables();
@@ -560,36 +595,39 @@ export class ImageMode
       return;
     }
 
-    const resizeBitmapWidth = !this.#fallbackCameraModelActive() ? DEFAULT_IMAGE_WIDTH : undefined;
-    decodeCompressedImageToBitmap(image, resizeBitmapWidth)
-      .then((maybeBitmap) => {
+    this.#bitmapCache.getBitmap(
+      messageEvent,
+      image,
+      undefined,
+      (bitmap) => {
         const prevRenderable = renderable;
         const currentRenderable = this.#imageRenderable;
         // prevent setting and updating disposed renderables
         if (currentRenderable !== prevRenderable) {
           return;
         }
-        this.renderer.settings.errors.removeFromTopic(topic, CREATE_BITMAP_ERR_KEY);
-        renderable.setBitmap(maybeBitmap);
+        this.renderer.settings.errors.remove(IMAGE_TOPIC_PATH, CREATE_BITMAP_ERR_KEY);
+        renderable.setBitmap(bitmap);
         if (this.#fallbackCameraModelActive()) {
-          this.#updateFallbackCameraModel(maybeBitmap, getFrameIdFromImage(image));
+          this.#updateFallbackCameraModel(bitmap, getFrameIdFromImage(image));
         }
 
         renderable.update();
         this.renderer.queueAnimationFrame();
-      })
-      .catch((err) => {
+      },
+      (err) => {
         const prevRenderable = renderable;
         const currentRenderable = this.#imageRenderable;
         if (currentRenderable !== prevRenderable) {
           return;
         }
-        this.renderer.settings.errors.addToTopic(
-          topic,
+        this.renderer.settings.errors.add(
+          IMAGE_TOPIC_PATH,
           CREATE_BITMAP_ERR_KEY,
           `Error creating bitmap: ${err.message}`,
         );
-      });
+      },
+    );
   };
 
   #updateFallbackCameraModel = (
@@ -627,10 +665,15 @@ export class ImageMode
       return renderable;
     }
 
-    // we don't have settings for images yet
-    const userSettings = { ...IMAGE_RENDERABLE_DEFAULT_SETTINGS };
-
     const config = this.#getImageModeSettings();
+    const userSettings: ImageRenderableSettings = {
+      ...IMAGE_RENDERABLE_DEFAULT_SETTINGS,
+      minValue: config.minValue,
+      maxValue: config.maxValue,
+      foregroundOpacity: config.foregroundOpacity,
+      // planarProjectionFactor must be 1 to avoid imprecise projection due to small number of grid subdivisions
+      planarProjectionFactor: 1,
+    };
     renderable = new ImageRenderable(topicName, this.renderer, {
       receiveTime,
       messageTime: image ? toNanoSec("header" in image ? image.header.stamp : image.timestamp) : 0n,
@@ -642,9 +685,6 @@ export class ImageMode
       cameraInfo: undefined,
       cameraModel: undefined,
       image,
-      rotation: config.rotation,
-      flipHorizontal: config.flipHorizontal,
-      flipVertical: config.flipVertical,
       texture: undefined,
       material: undefined,
       geometry: undefined,
@@ -653,7 +693,7 @@ export class ImageMode
 
     this.add(renderable);
     this.#imageRenderable = renderable;
-    renderable.setRenderBehindScene();
+    renderable.setRenderFrontAndBehind();
     renderable.visible = true;
     return renderable;
   }
@@ -691,12 +731,15 @@ export class ImageMode
 
   #getImageModeSettings(): Immutable<ConfigWithDefaults> {
     const config = { ...this.renderer.config.imageMode };
-    config.synchronize ??= DEFAULT_CONFIG.synchronize;
-    config.rotation ??= DEFAULT_CONFIG.rotation;
-    config.flipHorizontal ??= DEFAULT_CONFIG.flipHorizontal;
-    config.flipVertical ??= DEFAULT_CONFIG.flipVertical;
 
-    return config as ConfigWithDefaults;
+    return {
+      ...config,
+      synchronize: config.synchronize ?? DEFAULT_CONFIG.synchronize,
+      rotation: config.rotation ?? DEFAULT_CONFIG.rotation,
+      flipHorizontal: config.flipHorizontal ?? DEFAULT_CONFIG.flipHorizontal,
+      flipVertical: config.flipVertical ?? DEFAULT_CONFIG.flipVertical,
+      foregroundOpacity: config.foregroundOpacity ?? DEFAULT_CONFIG.foregroundOpacity,
+    };
   }
 
   /**
@@ -808,6 +851,8 @@ export class ImageMode
       rotation: settings.rotation,
       flipHorizontal: settings.flipHorizontal,
       flipVertical: settings.flipVertical,
+      minValue: settings.minValue,
+      maxValue: settings.maxValue,
     };
   }
 }
